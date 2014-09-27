@@ -118,7 +118,7 @@ if __name__ == '__main__':
             mac = raw_input(">>> Enter a mac address : ")
             result = BanMac(mac,"disable")
             print result 
-        elif chooaw == "5" :
+        elif choose == "5" :
             exit()
         else :
             print "Please choose number 1 to 5."

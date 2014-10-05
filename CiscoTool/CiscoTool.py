@@ -28,20 +28,27 @@ def macfrom(mac,act="macmap") :
     connect.write("show mac address-table address " + mac + "\n")
     connect.write("exit\n")
     result = connect.read_all()
-    pat = r".*\..*\..*"
+    pat = r".*\..*\..*Gi.*"
+
     match = re.search(pat,result)
     if match :
         macmap = match.group()
-        pat = r"Gi1\/0\/.*"
-        tmp = re.search(pat,macmap)
-        port = tmp.group()
-        connect.close()
         if act == "port" :
+            pat = r"Gi1\/0\/.*"
+            tmp = re.search(pat,macmap)
+            port = tmp.group()
             return port
         else :
             return macmap
+        connect.close()
     else :
-        return "Not fround"
+        pat =  r".*\..*\..*Drop"
+        match = re.search(pat,result)
+        connect.close()
+        if match :
+            return match.group()
+        else :
+            return "Not found"
 
 def IPtoMac(IP) :
     cmd = "ping -c 1 " + IP + " > /dev/null" 
@@ -52,7 +59,7 @@ def IPtoMac(IP) :
     if mac :
         return mac.group()
     else :
-        return "Not fround"
+        return "Not found"
 
 def BanMac(mac,act="disable") :
     maclist = macfrom(mac)
@@ -88,8 +95,11 @@ def BanMac(mac,act="disable") :
         return "Still connect"
     elif act == "disable" and status == "STATIC" :
         return "Still disconnect"
+    elif act == "disable" and status -- "DYNAMIC" :
+        return "Sucessful"
     else :
         return "Error"
+
 def showacl(NameofACL):
     cmd = "sh access-lists " + NameofACL
     connect = login(Password)

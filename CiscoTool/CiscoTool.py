@@ -3,12 +3,14 @@
 
 import telnetlib
 import os
-import subprocess
 import time
 import getpass
+import re
+
 
 Password = ""
 host = ""
+aclpool = ["m115","m417","m313","m201","m208"]
 
 def login(Password) :
     username = ""
@@ -25,21 +27,32 @@ def macfrom(mac,act="macmap") :
     connect = login(Password)
     connect.write("show mac address-table address " + mac + "\n")
     connect.write("exit\n")
-    result = connect.read_all().split("\n")
-    macmap = result[7]
-    tmp = macmap.split()
-    port = tmp[3]
-    connect.close()
-    if act == "port" :
-        return port
+    result = connect.read_all()
+    pat = r".*\..*\..*"
+    match = re.search(pat,result)
+    if match :
+        macmap = match.group()
+        pat = r"Gi1\/0\/.*"
+        tmp = re.search(pat,macmap)
+        port = tmp.group()
+        connect.close()
+        if act == "port" :
+            return port
+        else :
+            return macmap
     else :
-        return macmap
+        return "Not fround"
 
 def IPtoMac(IP) :
     cmd = "ping -c 1 " + IP + " > /dev/null" 
     os.system(cmd)
-    arpmsg = os.popen("arp -a " + IP).read().split()
-    return arpmsg[3]
+    arpmsg = os.popen("arp -a " + IP).read()
+    pat = r"..:..:..:..:..:.."
+    mac = re.search(pat,arpmsg)
+    if mac :
+        return mac.group()
+    else :
+        return "Not fround"
 
 def BanMac(mac,act="disable") :
     maclist = macfrom(mac)
@@ -77,6 +90,44 @@ def BanMac(mac,act="disable") :
         return "Still disconnect"
     else :
         return "Error"
+def showacl(NameofACL):
+    cmd = "sh access-lists " + NameofACL
+    connect = login(Password)
+    connect.write(cmd + "\n")
+    connect.write(" ")
+    connect.write("exit\n")
+    result = connect.read_all()
+    return result
+
+def appendacl(NameofACL,IP) :
+    cmd_list = ["en",Password,"conf ter",
+            "ip access-list extended " + NameofACL,
+            "permit ip host " + IP + " any","exit","exit","exit" ]
+    connect = login(Password)
+    for cmd in cmd_list :
+        connect.write(cmd + "\n")
+        time.sleep(0.1)
+    connect.close()
+    acl = showacl(NameofACL)
+    if re.search(IP,acl) :
+        print "Sucessful"
+    else :
+        print "Fault"
+
+def removeacl(NameofACL,IP) :
+    cmd_list = ["en",Password,"conf ter",
+            "ip access-list extended " + NameofACL,
+            "no permit ip host " + IP + " any","exit","exit","exit" ]
+    connect = login(Password)
+    for cmd in cmd_list :
+        connect.write(cmd + "\n")
+        time.sleep(0.1)
+    connect.close()
+    acl = showacl(NameofACL)
+    if re.search(IP,acl) :
+        print "Fault"
+    else :
+        print "Sucessful"
 
 if __name__ == '__main__':
 
@@ -93,7 +144,12 @@ if __name__ == '__main__':
             2.detect mac address from port
             3.ban mac address
             4.no ban mac address
-            5.exit()
+            v-----------L3 Switch------------v
+            5.Show Access list
+            6.Append IP to Access List
+            7.Remove IP in Access List
+            ^-----------L3 Switch------------^
+            8.exit()
          """
     
         choose = raw_input(">>> Your choose :")
@@ -119,6 +175,30 @@ if __name__ == '__main__':
             result = BanMac(mac,"disable")
             print result 
         elif choose == "5" :
+            print "Show Access List"
+            NameofACL = raw_input(">>> Enter a name of ACL : ")
+            if NameofACL in aclpool :
+                print showacl(NameofACL)
+            else :
+                print NameofACL + " is empty."
+        elif choose == "6" :
+            print "Apppend IP to Access List"
+            NameofACL = raw_input(">>> Enter a name of ACL : ")
+            if NameofACL in aclpool :
+                IP  = raw_input(">>> Enter a IP : ")
+                appendacl(NameofACL,IP)
+            else :
+                print NameofACL + " is empty."
+        elif choose == "7" :
+            print "Remove IP in Access List"
+            NameofACL = raw_input(">>> Enter a name of ACL : ")
+            if NameofACL in aclpool :
+                IP  = raw_input(">>> Enter a IP : ")
+                removeacl(NameofACL,IP)
+            else :
+                print NameofACL + " is empty."
+        elif choose == "8" :
             exit()
         else :
-            print "Please choose number 1 to 5."
+            print "Please choose number 1 to 8."
+        print "<------------------------------------------>"
